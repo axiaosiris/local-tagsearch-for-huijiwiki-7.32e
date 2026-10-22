@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>huiji 旧版数据库检索器 · DOTA2-WIKI</title>
+<style>
+:root{
+  --bg:#f4f6f9; --panel:#fff; --line:#e2e6ec; --line2:#eef1f5;
+  --text:#1c2028; --sub:#697586; --pri:#2f6fed; --pri-d:#1f57c9; --pri-bg:#eef4ff;
+  --and:#2f6fed; --or:#0f9d58; --not:#d93b41; --warn:#d93b41;
+  --chip:#f3f6fb; --chipb:#dfe7f5;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:14px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;}
+header{background:#fff;border-bottom:1px solid var(--line);padding:13px 22px;
+  display:flex;align-items:baseline;gap:18px;flex-wrap:wrap}
+header h1{margin:0;font-size:17px;font-weight:650;letter-spacing:.2px}
+header .meta{font-size:12px;color:var(--sub)}
+header .meta b{color:#374151;font-weight:600}
+.wrap{display:grid;grid-template-columns:396px minmax(0,1fr);gap:16px;padding:16px;align-items:start}
+@media(max-width:1080px){.wrap{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.card>.hd{padding:11px 14px;border-bottom:1px solid var(--line2);display:flex;align-items:center;
+  justify-content:space-between;gap:8px}
+.card>.hd h2{margin:0;font-size:13.5px;font-weight:650}
+.card .bd{padding:12px 14px}
+.side{position:sticky;top:16px}
+/* 集合选择 */
+.colbar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.colbar .cb{border:1px solid var(--line);background:#fff;color:#4a5568;padding:5px 10px;
+  border-radius:7px;font:12.5px inherit;cursor:pointer}
+.colbar .cb:hover{background:#f7f9fc;border-color:#cfd6e0}
+.colbar .cb.on{background:#e8f0fb;border-color:#b9d2f0;color:#1a5fa8;font-weight:650}
+.colbar .cb .ct{color:var(--sub);font-weight:400;margin-left:3px;font-size:11px}
+.note{font-size:11.5px;color:var(--sub);line-height:1.6;background:#f8fafc;border:1px dashed var(--line);
+  border-radius:8px;padding:8px 10px;margin-bottom:12px}
+.scope{display:flex;flex-wrap:wrap;gap:6px 14px;margin-bottom:12px;font-size:13px;color:#333}
+.scope label{display:inline-flex;align-items:center;gap:5px;cursor:pointer;user-select:none}
+.scope .ttl{width:100%;font-size:12px;color:var(--sub);margin-bottom:2px}
+.nameq{margin-bottom:12px}
+.nameq .ttl{font-size:12px;color:var(--sub);margin-bottom:4px}
+.nameq input{width:100%;padding:7px 9px;font:13px/1.4 inherit;color:var(--text);
+  border:1px solid var(--line);border-radius:7px;background:#fff;outline:none}
+.nameq input:focus{border-color:var(--pri);box-shadow:0 0 0 3px var(--pri-bg)}
+.grp{border:1px solid var(--line);border-radius:9px;padding:10px 11px;margin-bottom:10px;background:#fcfdff}
+.grp.and{border-left:3px solid var(--and)}
+.grp.or{border-left:3px solid var(--or)}
+.grp.not{border-left:3px solid var(--not)}
+.grphd{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.grphd .t{font-weight:650;font-size:13px}
+.grp.and .grphd .t{color:var(--and)} .grp.or .grphd .t{color:var(--or)} .grp.not .grphd .t{color:var(--not)}
+.grphd .hint{font-size:11.5px;color:var(--sub);flex:1}
+.rowin{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.rowin input{flex:1;min-width:0;padding:6px 9px;font:13px/1.4 inherit;color:var(--text);
+  border:1px solid var(--line);border-radius:7px;background:#fff;outline:none}
+.rowin input:focus{border-color:var(--pri);box-shadow:0 0 0 3px var(--pri-bg)}
+.rowin input.bad{border-color:var(--warn);background:#fff6f6}
+.rowin .del{border:0;background:transparent;color:#9aa4b2;cursor:pointer;font-size:16px;line-height:1;
+  padding:3px 5px;border-radius:5px}
+.rowin .del:hover{background:#f0f2f6;color:#5b6472}
+.resol{font-size:11.5px;color:var(--sub);margin:-3px 0 7px 2px;line-height:1.5}
+.resol.bad{color:var(--warn)}
+.resol em{font-style:normal;color:#374151;font-weight:600}
+.btn{border:1px solid var(--line);background:#fff;color:#33345a;padding:5px 11px;border-radius:7px;
+  font:12.5px inherit;cursor:pointer}
+.btn:hover{background:#f7f9fc;border-color:#cfd6e0}
+.btn.link{border:0;background:transparent;color:var(--pri);padding:4px 6px}
+.btn.link:hover{text-decoration:underline;background:transparent}
+.btn.pri{background:var(--pri);border-color:var(--pri);color:#fff;padding:8px 20px;font-size:14px;font-weight:600}
+.btn.pri:hover{background:var(--pri-d)}
+.btn:disabled{opacity:.5;cursor:not-allowed;background:#f6f7fa;color:#9aa4b2;border-color:var(--line)}
+.rowitem{display:block}
+.resol.soft{color:#98a2b3}
+.actions{display:flex;align-items:center;gap:10px;margin-top:12px}
+.fuzzy{font-size:12.5px;color:var(--sub);display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+.sum{padding:11px 14px;border-bottom:1px solid var(--line2);display:flex;align-items:center;gap:14px;
+  flex-wrap:wrap;font-size:13px}
+.sum b.n{color:var(--pri);font-size:16px}
+.sum .sp{flex:1}
+.tblbox{max-height:calc(100vh - 190px);overflow:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--line2);vertical-align:top}
+thead th{position:sticky;top:0;background:#fbfcfe;z-index:2;font-weight:600;font-size:12.5px;color:#4a5568;
+  border-bottom:1px solid var(--line)}
+tbody tr:hover{background:#fafcff}
+td.id{color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap}
+td.nm{font-weight:600;white-space:nowrap}
+td.en{color:#9aa4b2;font-size:11.5px;word-break:break-all}
+.chip{display:inline-block;background:var(--chip);border:1px solid var(--chipb);border-radius:6px;
+  padding:1px 7px;margin:0 5px 5px 0;font-size:12px;line-height:1.75}
+.chip.and{border-color:#cddffd;background:#f2f7ff}
+.chip.or{border-color:#c9e9d5;background:#f2fbf5}
+.chip .loc{color:var(--sub);font-size:11px}
+.count{color:var(--sub);font-size:11.5px;white-space:nowrap}
+.empty{padding:34px;text-align:center;color:var(--sub);font-size:13px}
+.mask{position:fixed;inset:0;background:rgba(20,24,32,.42);display:none;align-items:center;justify-content:center;z-index:50;padding:24px}
+.mask.on{display:flex}
+.modal{background:#fff;border-radius:12px;max-width:860px;width:100%;max-height:84vh;overflow:auto;
+  box-shadow:0 18px 48px rgba(16,24,40,.22)}
+.modal .mhd{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--line);
+  padding:13px 18px;display:flex;align-items:center;gap:10px}
+.modal .mhd h3{margin:0;font-size:15px;font-weight:650;flex:1}
+.modal .mbd{padding:14px 18px}
+.sec{margin-bottom:15px}
+.sec h4{margin:0 0 7px;font-size:12.5px;color:#4a5568;font-weight:650}
+.warnbox{margin:0 0 12px;padding:9px 12px;border-radius:8px;background:#fff8e8;border:1px solid #f4e2b8;
+  color:#7a5b12;font-size:12.5px}
+.infobox{margin:0 0 12px;padding:9px 12px;border-radius:8px;background:#f2f7fd;border:1px solid #d3e2f4;
+  color:#33587f;font-size:12.5px}
+.kv{width:100%;border-collapse:collapse;font-size:12.5px}
+.kv th,.kv td{padding:5px 10px;border-bottom:1px solid var(--line2)}
+.kv th{width:210px;color:#4a5568;font-weight:600;background:#fbfcfe}
+.kv td{word-break:break-all}
+.lore{color:#57646f;font-size:12.5px;line-height:1.7;white-space:pre-wrap}
+.upd{margin:0 0 10px;padding:8px 11px;border:1px solid var(--line2);border-radius:8px;background:#fcfdff}
+.upd .ut{font-size:12px;color:var(--sub);margin-bottom:3px}
+.upd .ux{font-size:12.5px;line-height:1.65}
+.upd .utag{display:inline-block;border-radius:4px;padding:0 5px;font-size:10.5px;margin-left:5px;
+  line-height:1.7;font-weight:600;vertical-align:1px}
+.utag.up{background:#eafaf0;color:#0b7a43;border:1px solid #bfe6cf}
+.utag.down{background:#fdeeee;color:#b03030;border:1px solid #f3cccc}
+.utag.mid{background:#fdf6e3;color:#8a6d1a;border:1px solid #eedfae}
+.utag.imp{background:#eef4ff;color:#1a5fa8;border:1px solid #cfdffd}
+/* 简洁展示 */
+.cmpgrid{display:flex;flex-wrap:wrap;align-content:flex-start;gap:1px 8px;padding:8px 12px 12px}
+.cmitem{display:flex;align-items:center;gap:5px;flex:0 0 auto;min-width:150px;max-width:100%;
+  height:24px;padding:0 6px;border-radius:6px}
+.cmitem:hover{background:#f4f8fe}
+.cname{font-size:12.5px;color:var(--text);cursor:pointer;white-space:nowrap;flex:0 1 auto;
+  min-width:0;overflow:hidden;text-overflow:ellipsis}
+.cname:hover{color:var(--pri);text-decoration:underline}
+.cmup{color:var(--sub);font-size:10.5px;flex:none;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn.on{background:#e8f0fb;border-color:#b9d2f0;color:#1a5fa8;font-weight:650}
+.tip{font-size:12px;color:var(--sub);margin-top:8px;line-height:1.7}
+.expr{margin-top:11px;padding:8px 10px;border-radius:8px;background:#f5f8fd;border:1px dashed #cfdcef;
+  font-size:12px;line-height:1.9;color:var(--text);word-break:break-all}
+.expr .lb{font-weight:700;color:var(--sub);margin-right:4px}
+.expr .p{display:inline-block;padding:0 5px;border-radius:4px;font-weight:700;font-size:11px;
+  margin-right:4px;color:#fff;vertical-align:1px}
+.expr .p.and{background:var(--and)} .expr .p.or{background:var(--or)} .expr .p.not{background:var(--not)}
+.expr .join{font-weight:700;color:var(--sub);margin:0 5px}
+.expr .nm{display:inline-block;padding:0 5px;border-radius:4px;background:#fff;border:1px solid var(--line);
+  font:11.5px/1.6 ui-monospace,Consolas,Menlo,monospace;margin-right:3px}
+.expr .dim{color:var(--sub)}
+.expr .ww{display:block;margin-top:5px;padding-top:5px;border-top:1px dashed #e8dcbc;color:#a86a00;
+  font-weight:600;line-height:1.6}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>huiji 旧版数据库检索器</h1>
+  <div class="meta">数据快照 <b>7.32e</b>（2023-03-07）｜ 构建 <b id="mTime">—</b> ｜ 当前集合 <b id="mCol">—</b> <b id="mCnt">—</b> 条</div>
+</header>
+
+<div class="wrap">
+  <aside class="side">
+    <div class="card">
+      <div class="hd"><h2>检索条件</h2><button class="btn link" id="btnClear">清空</button></div>
+      <div class="bd">
+        <div class="colbar" id="colbar"></div>
+        <div class="note" id="colNote"></div>
+
+        <div class="nameq">
+          <div class="ttl">名称包含（可选，中文名/英文名子串匹配、不区分大小写；留空表示不限）</div>
+          <input id="nameQ" spellcheck="false" placeholder="如：撼地 / earthshaker">
+        </div>
+
+        <div class="scope" id="scopeBox" style="display:none">
+          <div class="ttl">匹配范围（标签维度，仅技能集合）</div>
+        </div>
+
+        <div class="grp and" data-k="and">
+          <div class="grphd"><span class="t">必须包含（且）</span><span class="hint">须同时含全部</span>
+            <button class="btn" data-add="and">+ 添加</button></div>
+          <div class="rows"></div>
+        </div>
+        <div class="grp or" data-k="or">
+          <div class="grphd"><span class="t">至少包含一项（或）</span><span class="hint">含任一即可</span>
+            <button class="btn" data-add="or">+ 添加</button></div>
+          <div class="rows"></div>
+        </div>
+        <div class="grp not" data-k="not">
+          <div class="grphd"><span class="t">必须排除（反选）</span><span class="hint">含任一即剔除</span>
+            <button class="btn" data-add="not">+ 添加</button></div>
+          <div class="rows"></div>
+        </div>
+
+        <label class="fuzzy"><input type="checkbox" id="fuzzy"> 模糊匹配：tag 名称按子串展开（如「驱散」→ 弱驱散/强驱散/无法驱散）</label>
+
+        <div class="expr" id="expr"><span class="dim">当前条件：（未设置）</span></div>
+
+        <div class="actions">
+          <button class="btn pri" id="btnRun">检 索</button>
+          <span class="tip" style="margin:0">回车即可执行 · 每类最多 5 个</span>
+        </div>
+        <div class="tip">
+          三类可<b>任意组合、同时生效</b>：命中 =（<b>且</b> 全部满足）<b>且</b>（<b>或</b> 至少一项）<b>且</b>（<b>非</b> 一个都不满足）。
+          技能标签来源：① <b>游戏 KV 派生</b>（施法类型/目标/技能免疫/驱散/伤害类型/升级/类别/归属）；
+          ② <b>技能源页面机制字段</b>（包含效果/技能行为/独立机制/无敌/减益免疫/状态抗性，如沉默、锁闭、眩晕、缴械）。
+          数据均来自 huiji 旧版 <b>7.32e 快照</b>，<b>未引入任何现行网页 wiki 内容</b>（版本隔离）。
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="card">
+      <div class="sum">
+        <span>命中 <b class="n" id="nHit">0</b> 条</span>
+        <span class="count" id="nScan"></span>
+        <span class="sp"></span>
+        <button class="btn" id="btnView" title="切换展示：简洁（仅名称）/ 详细（含命中详情）">☰ 简洁展示</button>
+        <button class="btn" id="btnCsv" disabled>导出 CSV</button>
+      </div>
+      <div class="tblbox" id="tblbox">
+        <div class="empty">在左侧选择集合并输入条件后点击「检索」</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="mask" id="mask">
+  <div class="modal">
+    <div class="mhd"><h3 id="mTitle"></h3><button class="btn" id="mClose">关闭</button></div>
+    <div class="mbd" id="mBody"></div>
+  </div>
+</div>
+
+<datalist id="tagOptions"></datalist>
+
+<script src="data.js"></script>
+<script src="search-core.js"></script>
+<script>
+(function () {
+  'use strict';
+  var DB = window.HUIJIDB;
+  var core = window.HuijiSearch;
+  var idx = null;
+  var curCol = '技能';
+  var last = null;
+  var viewMode = 'full';   // full 详细 | compact 简洁
+
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c];
+    });
+  };
+
+  if (!DB || !core) {
+    document.querySelector('.tblbox').innerHTML =
+      '<div class="empty">未找到数据文件 data.js —— 请先运行 <b>build_data.py</b> 生成。</div>';
+    return;
+  }
+  idx = core.createIndex(DB);
+
+  /* ---------------- 集合切换 ---------------- */
+  function buildColBar() {
+    var bar = $('colbar');
+    bar.innerHTML = '';
+    idx.names.forEach(function (cname) {
+      var c = idx.cols[cname];
+      var b = document.createElement('button');
+      b.className = 'cb' + (cname === curCol ? ' on' : '');
+      b.innerHTML = esc(c.label) + '<span class="ct">' + c.entries.length + '</span>';
+      b.setAttribute('data-col', cname);
+      b.addEventListener('click', function () { switchCol(cname); });
+      bar.appendChild(b);
+    });
+  }
+
+  function switchCol(cname) {
+    curCol = cname;
+    last = null;
+    $('btnCsv').disabled = true;
+    $('nHit').textContent = '0'; $('nScan').textContent = '';
+    $('tblbox').innerHTML = '<div class="empty">在左侧输入条件后点击「检索」</div>';
+    // 切集合即清空条件（各集合标签体系不同，避免残留条件静默清零结果）
+    KINDS.forEach(function (k) { rowsOf(k).innerHTML = ''; addRow(k, true); });
+    $('nameQ').value = '';
+    buildColBar();
+    renderScope();
+    fillTagOptions();
+    setMeta();
+    updateExpr();
+  }
+
+  function renderScope() {
+    var box = $('scopeBox');
+    var c = idx.cols[curCol];
+    if (!c.scopes.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    box.style.display = 'flex';
+    box.innerHTML = '<div class="ttl">匹配范围（标签维度，均来自 7.32e 快照）</div>';
+    c.scopes.forEach(function (s) {
+      var lb = document.createElement('label');
+      lb.innerHTML = '<input type="checkbox" id="sc_' + s.key + '" checked> ' + esc(s.label);
+      box.appendChild(lb);
+    });
+  }
+
+  function scope() {
+    var c = idx.cols[curCol];
+    var out = {};
+    if (!c.scopes.length) return out;
+    c.scopes.forEach(function (s) { out[s.key] = $('sc_' + s.key).checked; });
+    return out;
+  }
+
+  function setMeta() {
+    $('mTime').textContent = DB.builtAt || '未知';
+    $('mCol').textContent = idx.cols[curCol].label;
+    $('mCnt').textContent = idx.cols[curCol].entries.length;
+    $('colNote').textContent = idx.cols[curCol].note || '';
+  }
+
+  function fillTagOptions() {
+    var dl = $('tagOptions');
+    var c = idx.cols[curCol];
+    dl.innerHTML = c.names.map(function (n) { return '<option value="' + esc(n) + '">'; }).join('');
+  }
+
+  /* ---------------- 条件行 ---------------- */
+  var MAX = core.MAXC;
+  var KINDS = ['and', 'or', 'not'];
+  function rowsOf(kind) { return document.querySelector('.grp[data-k="' + kind + '"] .rows'); }
+  function refreshAddBtns() {
+    KINDS.forEach(function (k) {
+      var n = rowsOf(k).querySelectorAll('.rowitem').length;
+      var b = document.querySelector('[data-add="' + k + '"]');
+      if (!b) return;
+      b.disabled = n >= MAX;
+      b.title = n >= MAX ? ('每类最多 ' + MAX + ' 个') : '';
+    });
+  }
+  function addRow(kind, silent) {
+    var box = rowsOf(kind);
+    if (box.querySelectorAll('.rowitem').length >= MAX) { refreshAddBtns(); return; }
+    var item = document.createElement('div');
+    item.className = 'rowitem';
+    item.innerHTML = '<div class="rowin"><input list="tagOptions" placeholder="输入标签名称" spellcheck="false">' +
+      '<button class="del" title="删除">×</button></div>';
+    var inp = item.querySelector('input');
+    inp.addEventListener('input', function () { validateRow(inp, false); });
+    inp.addEventListener('blur', function () { validateRow(inp, true); });
+    item.querySelector('.del').addEventListener('click', function () {
+      item.remove(); refreshAddBtns();
+    });
+    box.appendChild(item);
+    refreshAddBtns();
+    if (!silent) inp.focus();
+  }
+  document.querySelectorAll('[data-add]').forEach(function (b) {
+    b.addEventListener('click', function () { addRow(b.getAttribute('data-add')); });
+  });
+
+  function validateRow(inp, hard) {
+    var item = (inp.closest ? inp.closest('.rowitem') : null) || inp.parentNode.parentNode;
+    var el = item.querySelector('.resol');
+    if (!el) { el = document.createElement('div'); el.className = 'resol'; item.appendChild(el); }
+    var v = inp.value.trim();
+    var res = v ? core.resolveName(idx.cols[curCol], v, $('fuzzy').checked) : null;
+    if (!res) {
+      el.className = 'resol'; el.style.display = 'none';
+      inp.classList.remove('bad');
+      return;
+    }
+    el.style.display = 'block';
+    if (!res.ids) {
+      el.className = hard ? 'resol bad' : 'resol soft';
+      el.textContent = hard ? '未找到该标签，请检查名称' : '未匹配到（继续输入，或勾选模糊匹配）';
+      if (hard) inp.classList.add('bad'); else inp.classList.remove('bad');
+      return;
+    }
+    el.className = 'resol';
+    inp.classList.remove('bad');
+    var extra = res.exact ? '' : '（含子串匹配）';
+    var shown = res.names.length > 6 ? res.names.slice(0, 6).join('、') + ' 等' : res.names.join('、');
+    el.innerHTML = '→ <em>' + esc(shown) + '</em>' + extra + ' · ' + res.ids.length + ' 个标签';
+  }
+
+  function revalidateAll(hard) {
+    Array.prototype.slice.call(document.querySelectorAll('.rows input'))
+      .forEach(function (i) { validateRow(i, hard); });
+  }
+
+  function collect(kind) {
+    return Array.prototype.slice.call(
+      document.querySelectorAll('.grp[data-k="' + kind + '"] .rows input')
+    ).map(function (i) { return i.value.trim(); }).filter(Boolean);
+  }
+
+  /* ---------------- 检索 ---------------- */
+  function run() {
+    var q = {
+      and: collect('and'), or: collect('or'), not: collect('not'),
+      name: $('nameQ').value, fuzzy: $('fuzzy').checked, scope: scope()
+    };
+    if (!q.and.length && !q.or.length && !q.not.length && !q.name) {
+      $('tblbox').innerHTML = '<div class="empty">请至少输入一个条件（标签或名称）</div>';
+      $('nHit').textContent = '0'; $('nScan').textContent = '';
+      last = null; $('btnCsv').disabled = true;
+      return;
+    }
+    revalidateAll(true);
+    var r = core.search(idx.cols[curCol], q);
+    last = { query: q, result: r };
+    render(r);
+  }
+
+  function chipHtml(d) {
+    var locs = d.names.join('、');
+    return '<span class="chip ' + d.group + '">' +
+      (d.group === 'and' ? '且' : '或') + ' · ' + esc(d.input) +
+      ' <span class="loc">@ ' + esc(locs) + '</span></span>';
+  }
+
+  function render(r) {
+    $('nHit').textContent = r.hits.length;
+    $('nScan').textContent = '（全库扫描 ' + r.scanned + ' 条）';
+    $('btnCsv').disabled = r.hits.length === 0;
+    var b = $('btnView');
+    var compact = viewMode === 'compact';
+    b.textContent = compact ? '▤ 详细展示' : '☰ 简洁展示';
+    b.classList.toggle('on', compact);
+
+    var html = '';
+    if (last.query.or.length === 1) {
+      html += '<div class="warnbox" style="margin:12px 14px 0">「或」组只填了 1 项（<b>' +
+        esc(last.query.or[0]) + '</b>），此时它<b>等价于「且」</b>；若要表达「或」，请至少填 2 项。</div>';
+    }
+    if (r.unknown.length) {
+      html += '<div class="warnbox" style="margin:12px 14px 0">未识别的标签：<b>' +
+        esc(r.unknown.join('、')) + '</b> —— 该条件已被忽略，请核对名称。</div>';
+    }
+    if (!r.hits.length) {
+      $('tblbox').innerHTML = html + '<div class="empty">没有条目满足当前条件</div>';
+      return;
+    }
+    var LIMIT = viewMode === 'compact' ? 2000 : 500;
+    var list = r.hits.slice(0, LIMIT);
+    if (viewMode === 'compact') {
+      html += '<div class="cmpgrid">';
+      list.forEach(function (h, i) {
+        var e = h.entry;
+        var sub = curCol === '技能' ? (e.own || '') : (curCol === '曾用名' ? (e.page || '') :
+          (curCol === '版本更新' ? (e.date || '') : (e.en || e.grp || e.kind || e.cat || '')));
+        html += '<div class="cmitem" title="' + esc((e.n || '') + '　' + sub + '　点击查看详情') + '">' +
+          (sub ? '<span class="cmup">' + esc(sub) + '</span>' : '') +
+          '<span class="cname" data-detail="' + i + '">' + esc(e.n || '(无名)') + '</span></div>';
+      });
+      html += '</div>';
+    } else {
+      var cols = idx.cols[curCol].cols;
+      html += '<table><thead><tr>';
+      cols.forEach(function (c) { html += '<th>' + esc(c.t || '') + '</th>'; });
+      html += '</tr></thead><tbody>';
+      list.forEach(function (h, i) {
+        var e = h.entry;
+        html += '<tr>';
+        cols.forEach(function (c) {
+          var v = '';
+          if (c.k === '_hits') {
+            v = h.detail.length ? h.detail.map(chipHtml).join('') : '<span class="count">—</span>';
+          } else if (c.k === '_cnt') {
+            v = '<span class="count">' + h.tagCount + '</span>';
+          } else if (c.k === '_d') {
+            v = '<button class="btn link" data-detail="' + i + '">详情</button>';
+          } else if (c.k === 'n') {
+            v = '<span style="font-weight:600">' + esc(e.n || '(无名)') + '</span>';
+            if (e.en && curCol !== '曾用名' && curCol !== '机制') {
+              v += '<div class="en">' + esc(e.en) + '</div>';
+            }
+          } else {
+            var fv = e[c.k];
+            if (Array.isArray(fv)) fv = fv.join('、');
+            v = fv == null || fv === '' ? '<span class="count">—</span>' : esc(fv);
+          }
+          html += '<td>' + v + '</td>';
+        });
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+    }
+    if (r.hits.length > LIMIT) {
+      html += '<div class="empty">已显示前 ' + LIMIT + ' 条，共 ' + r.hits.length +
+        ' 条 —— 请用「导出 CSV」查看全部。</div>';
+    }
+    $('tblbox').innerHTML = html;
+
+    Array.prototype.slice.call($('tblbox').querySelectorAll('[data-detail]')).forEach(function (b) {
+      b.addEventListener('click', function () { openDetail(list[+b.getAttribute('data-detail')].entry); });
+    });
+  }
+
+  /* ---------------- 详情 ---------------- */
+  function kvTable(kv) {
+    var rows = Object.keys(kv).map(function (k) {
+      return '<tr><th>' + esc(k) + '</th><td>' + esc(kv[k]) + '</td></tr>';
+    }).join('');
+    return '<table class="kv">' + rows + '</table>';
+  }
+
+  function tagGroups(e) {
+    var g = core.describe(idx.cols[curCol], e);
+    var html = '';
+    Object.keys(g).forEach(function (c1) {
+      html += '<div class="sec"><h4>' + esc(c1) + '</h4>' + g[c1].map(function (t) {
+        return '<span class="chip" title="' +
+          esc('7.32e 快照 · ' + (t.c1 || '') + ' / ' + (t.c2 || '') + ' · id=' + t.id) + '">' +
+          esc(t.name) + '</span>';
+      }).join('') + '</div>';
+    });
+    return html;
+  }
+
+  function openDetail(e) {
+    var c = curCol;
+    var body = '';
+    if (c === '技能') {
+      body += '<div class="sec"><h4>基本信息</h4>' + kvTable({
+        '中文名': e.n, '英文名': e.en, '游戏ID': e.gid, '归属': e.own
+      }) + '</div>';
+      body += '<div class="infobox">本检索器数据来源于 huiji 旧版 wiki 的 <b>7.32e</b> 快照（2023-03-07）。'
+        + '技能标签来源：① <b>游戏 KV 字段派生</b>；② <b>技能源页面机制字段</b>（包含效果/技能行为/独立机制/无敌/减益免疫/状态抗性）。'
+        + '二者均属旧版快照，<b>未引入任何现行网页 wiki 内容</b>（版本隔离）。</div>';
+      var kv = {};
+      Object.keys(e.kv || {}).forEach(function (k) { if (k !== 'lore') kv[k] = e.kv[k]; });
+      if (Object.keys(kv).length) body += '<div class="sec"><h4>KV 数据（7.32e 快照，原始令牌/数值）</h4>' + kvTable(kv) + '</div>';
+      if (e.kv && e.kv.lore) body += '<div class="sec"><h4>背景故事</h4><div class="lore">' + esc(e.kv.lore) + '</div></div>';
+      var g = core.describe(idx.cols[c], e);
+      if (Object.keys(g).length) body += '<div class="sec"><h4>派生标签</h4>' + tagGroups(e) + '</div>';
+    } else if (c === '机制') {
+      body += '<div class="sec"><h4>基本信息</h4>' + kvTable({ '名称': e.n, '分组': e.grp }) + '</div>';
+      if (e.brief) body += '<div class="sec"><h4>简述（7.32e 原文）</h4><div class="lore">' + esc(e.brief) + '</div></div>';
+    } else if (c === '曾用名') {
+      body += '<div class="sec"><h4>基本信息</h4>' + kvTable({ '名称': e.n, '页面名': e.page, '类别': e.kind }) + '</div>';
+    } else if (c === '版本更新') {
+      var counts = Object.keys(e.counts || {}).map(function (k) { return k + ' ' + e.counts[k]; }).join('　');
+      body += '<div class="sec"><h4>版本信息</h4>' + kvTable({
+        '版本': e.n, '更新日期': e.date, '分类': e.cat,
+        '官网链接': e.link || '—', '更新条目': counts
+      }) + '</div>';
+      var groups = {};
+      (e.ents || []).forEach(function (u) {
+        if (!groups[u.g]) groups[u.g] = [];
+        groups[u.g].push(u);
+      });
+      Object.keys(groups).forEach(function (g) {
+        var rows = groups[g].map(function (u) {
+          var tags = (u.tags || []).map(function (t) {
+            var cls = t === '加强' ? 'up' : (t === '削弱' ? 'down' : (t === '重要' ? 'imp' : 'mid'));
+            return '<span class="utag ' + cls + '">' + esc(t) + '</span>';
+          }).join('');
+          return '<div class="upd"><div class="ut">' + esc(u.t || '') + tags + '</div>' +
+            '<div class="ux">' + esc(u.x) + '</div></div>';
+        }).join('');
+        body += '<div class="sec"><h4>' + esc(g) + '（' + groups[g].length + ' 条）</h4>' + rows + '</div>';
+      });
+      if (!e.ents || !e.ents.length) body += '<div class="empty">该版本暂无更新条目</div>';
+    } else if (c === '词汇注释') {
+      body += '<div class="sec"><h4>基本信息</h4>' + kvTable({ '词汇': e.n, '链接': e.link || '—' }) + '</div>';
+      if (e.text) body += '<div class="sec"><h4>文字</h4><div class="lore">' + esc(e.text) + '</div></div>';
+      if (e.note) body += '<div class="sec"><h4>注释</h4><div class="lore">' + esc(e.note) + '</div></div>';
+      if (e.dnote) body += '<div class="sec"><h4>伤害注释</h4><div class="lore">' + esc(e.dnote) + '</div></div>';
+    } else if (c === '英雄' || c === '非英雄单位') {
+      body += '<div class="sec"><h4>基本信息</h4>' + kvTable({
+        '中文名': e.n, '英文名': e.en,
+        '主属性': e.attr || '—', '攻击类型': e.cap || '—', '分类': (e.cats || []).join('、')
+      }) + '</div>';
+      if (e.stats) body += '<div class="sec"><h4>属性（7.32e 基础值）</h4>' + kvTable(e.stats) + '</div>';
+      var g2 = core.describe(idx.cols[c], e);
+      if (Object.keys(g2).length) body += '<div class="sec"><h4>标签</h4>' + tagGroups(e) + '</div>';
+    } else if (c === '物品') {
+      body += '<div class="sec"><h4>基本信息</h4>' + kvTable({
+        '中文名': e.n, '英文名': e.en, '价格': e.cost, '品质': e.quality || '—', '商店标签': e.shop || '—'
+      }) + '</div>';
+      var g3 = core.describe(idx.cols[c], e);
+      if (Object.keys(g3).length) body += '<div class="sec"><h4>标签</h4>' + tagGroups(e) + '</div>';
+    }
+    $('mTitle').innerHTML = esc(e.n || '(无名)') +
+      (e.en && e.en !== e.n ? '　<span style="color:#9aa4b2;font-size:12px">' + esc(e.en) + '</span>' : '');
+    $('mBody').innerHTML = body || '<div class="empty">无详情</div>';
+    $('mask').classList.add('on');
+  }
+  $('mClose').addEventListener('click', function () { $('mask').classList.remove('on'); });
+  $('mask').addEventListener('click', function (ev) { if (ev.target === $('mask')) $('mask').classList.remove('on'); });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') $('mask').classList.remove('on');
+  });
+
+  /* ---------------- 导出 CSV ---------------- */
+  $('btnView').addEventListener('click', function () {
+    viewMode = viewMode === 'full' ? 'compact' : 'full';
+    if (last) render(last.result);
+  });
+
+  $('btnCsv').addEventListener('click', function () {
+    if (!last) return;
+    var cols = idx.cols[curCol].cols.filter(function (c) { return c.k !== '_d'; });
+    var rows = [cols.map(function (c) { return c.t || c.k; })];
+    last.result.hits.forEach(function (h) {
+      var e = h.entry;
+      rows.push(cols.map(function (c) {
+        if (c.k === '_hits') {
+          return h.detail.map(function (d) {
+            return (d.group === 'and' ? '且:' : '或:') + d.input + '@' + d.names.join('/');
+          }).join(' | ');
+        }
+        if (c.k === '_cnt') return h.tagCount;
+        var v = e[c.k];
+        if (Array.isArray(v)) v = v.join('、');
+        return v == null ? '' : v;
+      }));
+    });
+    var csv = rows.map(function (r) {
+      return r.map(function (cell) {
+        cell = String(cell == null ? '' : cell);
+        return /[",\n\r]/.test(cell) ? '"' + cell.replace(/"/g, '""') + '"' : cell;
+      }).join(',');
+    }).join('\r\n');
+    var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'huiji-' + curCol + '-' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+  });
+
+  /* ---------------- 表达式显示 ---------------- */
+  function updateExpr() {
+    var el = $('expr');
+    var a = collect('and'), o = collect('or'), n = collect('not');
+    var nm = $('nameQ').value.trim();
+    var seg = [];
+    if (a.length) seg.push('(<span class="p and">且</span>' + a.map(function (x) { return '<span class="nm">' + esc(x) + '</span>'; }).join('<span class="join">且</span>') + ')');
+    if (o.length) seg.push('(<span class="p or">或</span>' + o.map(function (x) { return '<span class="nm">' + esc(x) + '</span>'; }).join('<span class="join">或</span>') + ')');
+    if (n.length) seg.push('(<span class="p not">非</span>' + n.map(function (x) { return '<span class="nm">' + esc(x) + '</span>'; }).join('<span class="join">或</span>') + ')');
+    if (nm) seg.push('<span class="lb">名称含</span><span class="nm">' + esc(nm) + '</span>');
+    var ww = (o.length === 1)
+      ? '<span class="ww">⚠ 「或」只填了 1 项 —— 此时它等价于「且」。「或」至少需要 2 项。</span>' : '';
+    el.innerHTML = seg.length
+      ? '<span class="lb">当前条件：</span>' + seg.join(' <span class="join">且</span> ') + ww
+      : '<span class="dim">当前条件：（未设置）</span>';
+  }
+  document.querySelector('.side').addEventListener('input', updateExpr);
+  document.querySelector('.side').addEventListener('click', function () { setTimeout(updateExpr, 0); });
+
+  $('btnRun').addEventListener('click', run);
+  $('btnClear').addEventListener('click', function () {
+    KINDS.forEach(function (k) { rowsOf(k).innerHTML = ''; addRow(k, true); });
+    $('nameQ').value = '';
+    refreshAddBtns();
+    last = null; $('btnCsv').disabled = true; $('nHit').textContent = '0'; $('nScan').textContent = '';
+    $('tblbox').innerHTML = '<div class="empty">在左侧输入条件后点击「检索」</div>';
+    updateExpr();
+  });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter' && ev.target.tagName === 'INPUT') { ev.preventDefault(); run(); }
+  });
+  $('fuzzy').addEventListener('change', function () { revalidateAll(true); });
+
+  /* ---------------- 启动 ---------------- */
+  buildColBar();
+  renderScope();
+  fillTagOptions();
+  setMeta();
+  KINDS.forEach(function (k) { addRow(k, true); });
+  updateExpr();
+})();
+</script>
+</body>
+</html>
